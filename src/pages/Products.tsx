@@ -1,46 +1,31 @@
-import { useState, useEffect } from 'react';
-import type { Product } from '../types';
-import { productApi } from '../utils/api';
-import { CATEGORIES, SORT_OPTIONS, PRODUCTS_PER_PAGE } from '../utils/constants';
-import ProductCard from '../components/product/ProductCard';
-import { Spinner, Button } from '../components/common';
-import styles from './Products.module.css';
+import { useState } from "react";
+import { useProducts } from "@/hooks/useProducts";
+import {
+  CATEGORIES,
+  SORT_OPTIONS,
+  PRODUCTS_PER_PAGE,
+} from "../utils/constants";
+import ProductCard from "../components/product/ProductCard";
+import { Spinner, Button } from "../components/common";
+import styles from "./Products.module.css";
 
 export default function Products() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  const [category, setCategory] = useState('');
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [sort, setSort] = useState('latest');
+  const [category, setCategory] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [sort, setSort] = useState("latest");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await productApi.getAll({
-          page,
-          pageSize: PRODUCTS_PER_PAGE,
-          category: category || undefined,
-          search: search || undefined,
-          sort,
-        });
-        setProducts(response.items);
-        setTotalPages(response.totalPages);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '상품을 불러오는데 실패했습니다');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [page, category, search, sort]);
+  const { data, isLoading, isError, refetch, error } = useProducts({
+    page,
+    pageSize: PRODUCTS_PER_PAGE,
+    category: category || undefined,
+    search: search || undefined,
+    sort,
+  });
+  const products = data?.items ?? [];
+  const totalPages = data?.totalPages ?? 1;
+  // const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState<string | null>(null);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,11 +43,18 @@ export default function Products() {
     setPage(1);
   };
 
-  if (error) {
+  if (isError) {
     return (
       <div className={styles.error}>
-        <p>{error}</p>
-        <Button onClick={() => { setError(null); setPage(1); }}>다시 시도</Button>
+        <p>{error.message}</p>
+        <Button
+          onClick={() => {
+            setPage(1);
+            refetch();
+          }}
+        >
+          다시 시도
+        </Button>
       </div>
     );
   }
@@ -77,7 +69,7 @@ export default function Products() {
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
-              className={`${styles.categoryButton} ${category === cat.value ? styles.active : ''}`}
+              className={`${styles.categoryButton} ${category === cat.value ? styles.active : ""}`}
               onClick={() => handleCategoryChange(cat.value)}
             >
               {cat.label}
@@ -114,7 +106,7 @@ export default function Products() {
       </div>
 
       {/* 상품 목록 */}
-      {loading ? (
+      {isLoading ? (
         <Spinner size="large" />
       ) : products.length === 0 ? (
         <div className={styles.empty}>
